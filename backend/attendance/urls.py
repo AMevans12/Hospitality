@@ -13,6 +13,7 @@ urlpatterns = [
     path('employees/<int:pk>/reset-pin/', views.ResetPin.as_view()),
     path('departments/', views.DepartmentList.as_view()),
     path('shifts/', views.ShiftList.as_view()),
+    path('shifts/<int:pk>/', views.ShiftDetail.as_view()),
     path('dashboard/', views.DashboardView.as_view()),
     path('reports/attendance/', views.AttendanceReportView.as_view()),
     path('settings/', views.SettingsView.as_view()),

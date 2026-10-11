@@ -14,7 +14,7 @@ from .reports import build_report
 from .serializers import SettingSerializer
 
 from .models import Employee, Department, Shift, AuditLog
-from .permissions import IsAdminOrHR
+from .permissions import IsAdminOrHR, IsAdminOrHROrReadOnly
 from .serializers import (user_payload, EmployeeSerializer,
                           DepartmentSerializer, ShiftSerializer)
 from django.http import HttpResponse, Http404
@@ -128,9 +128,28 @@ class DepartmentList(generics.ListAPIView):
     serializer_class = DepartmentSerializer
 
 
-class ShiftList(generics.ListAPIView):
-    queryset = Shift.objects.all().order_by('name')
+class ShiftList(generics.ListCreateAPIView):
+    permission_classes = [IsAdminOrHROrReadOnly]
+    queryset = Shift.objects.all().order_by('start_time', 'name')
     serializer_class = ShiftSerializer
+
+    def perform_create(self, serializer):
+        s = serializer.save()
+        audit(self.request, 'shift.create', s.name)
+
+class ShiftDetail(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAdminOrHROrReadOnly]
+    queryset = Shift.objects.all()
+    serializer_class = ShiftSerializer
+
+    def perform_update(self, serializer):
+        s = serializer.save()
+        audit(self.request, 'shift.update', s.name)
+
+    def perform_destroy(self, instance):
+        audit(self.request, 'shift.delete', instance.name)
+        instance.delete()
+
 
 class DashboardView(APIView):
     permission_classes = [IsAdminOrHR]

@@ -31,9 +31,11 @@ class DepartmentSerializer(serializers.ModelSerializer):
 
 
 class ShiftSerializer(serializers.ModelSerializer):
+    crosses_midnight = serializers.ReadOnlyField()
+
     class Meta:
         model = Shift
-        fields = ['id', 'name', 'start_time', 'end_time']
+        fields = ['id', 'name', 'start_time', 'end_time', 'crosses_midnight']
 
 
 def user_payload(u):
@@ -58,3 +60,23 @@ class SettingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Setting
         exclude = ['id']
+
+    def validate_hospital_lat(self, v):
+        if not -90 <= v <= 90:
+            raise serializers.ValidationError('Latitude must be between -90 and 90')
+        return v
+
+    def validate_hospital_lng(self, v):
+        if not -180 <= v <= 180:
+            raise serializers.ValidationError('Longitude must be between -180 and 180')
+        return v
+
+    def validate_radius_m(self, v):
+        if not 20 <= v <= 1000:
+            raise serializers.ValidationError('Radius must be between 20 and 1000 metres')
+        return v
+
+    def validate_late_after_min(self, v):
+        if not 0 <= v <= 180:
+            raise serializers.ValidationError('Late grace must be between 0 and 180 minutes')
+        return v
