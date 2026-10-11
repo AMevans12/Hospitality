@@ -1,12 +1,42 @@
+
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme';
-import { Screen, Header, Card, Badge, Avatar, ActionTile, BottomTabs } from '../components/ui';
+import {
+  Screen,
+  Header,
+  Card,
+  Badge,
+  Avatar,
+  ActionTile,
+  BottomTabs,
+} from '../components/ui';
+import { useAuth } from '../auth/AuthContext';
+import { openAccountMenu } from '../utils/accountMenu';
 
 export default function EmployeeDashboard({ navigation }) {
+  const { user, logout } = useAuth();
+
   return (
     <>
-      <Screen header={<Header title="Dashboard" right={null} onMenu={() => {}} />}>
+      <Screen
+        header={
+          <Header
+            title="Dashboard"
+            onMenu={() => openAccountMenu({ user, navigation, logout })}
+            right={
+              <TouchableOpacity onPress={logout}>
+                <Ionicons
+                  name="log-out-outline"
+                  size={24}
+                  color="#fff"
+                />
+              </TouchableOpacity>
+            }
+          />
+        }
+      >
         <ScrollView contentContainerStyle={{ padding: 14 }}>
           <Card style={s.profile}>
             <Avatar size={64} />
@@ -20,38 +50,99 @@ export default function EmployeeDashboard({ navigation }) {
 
           <Card style={s.today}>
             <View>
-              <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text }}>Today</Text>
+              <Text
+                style={{
+                  fontSize: 18,
+                  fontWeight: '700',
+                  color: colors.text,
+                }}
+              >
+                Today
+              </Text>
               <Text style={s.meta}>Tue, 29 Sep 2026</Text>
             </View>
             <Badge text="Not Checked In" type="red" />
           </Card>
 
           <View style={s.row}>
-            <ActionTile icon="log-in-outline" label="Check In" bg={colors.green} color="#fff" textColor="#fff" onPress={() => navigation.navigate('FaceVerification')} />
+            <ActionTile
+              icon="log-in-outline"
+              label="Check In"
+              bg={colors.green}
+              color="#fff"
+              textColor="#fff"
+              onPress={() => navigation.navigate('FaceVerification')}
+            />
             <View style={{ width: 12 }} />
-            <ActionTile icon="log-out-outline" label="Check Out" bg={colors.red} color="#fff" textColor="#fff" onPress={() => navigation.navigate('FaceVerification')} />
+            <ActionTile
+              icon="log-out-outline"
+              label="Check Out"
+              bg={colors.red}
+              color="#fff"
+              textColor="#fff"
+              onPress={() => navigation.navigate('FaceVerification')}
+            />
           </View>
+
           <View style={s.row}>
-            <ActionTile icon="calendar-outline" label="My Attendance" onPress={() => navigation.navigate('AttendanceHistory')} />
+            <ActionTile
+              icon="calendar-outline"
+              label="My Attendance"
+              onPress={() => navigation.navigate('AttendanceHistory')}
+            />
             <View style={{ width: 12 }} />
-            <ActionTile icon="bar-chart-outline" label="Monthly Report" onPress={() => navigation.navigate('AttendanceHistory')} />
+            <ActionTile
+              icon="bar-chart-outline"
+              label="Monthly Report"
+              onPress={() => navigation.navigate('AttendanceHistory')}
+            />
           </View>
+
           <View style={s.row}>
-            <ActionTile icon="person-outline" label="Profile" />
+            <ActionTile
+              icon="person-outline"
+              label="Profile"
+              onPress={() => openAccountMenu({ user, navigation, logout })}
+            />
             <View style={{ width: 12 }} />
-            <ActionTile icon="megaphone-outline" label="Announcements" />
+            <ActionTile
+              icon="megaphone-outline"
+              label="Announcements"
+            />
           </View>
         </ScrollView>
       </Screen>
+
       <BottomTabs active="home" navigation={navigation} />
     </>
   );
 }
 
 const s = StyleSheet.create({
-  profile: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  name: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 2 },
-  meta: { color: colors.muted, fontSize: 13, marginTop: 1 },
-  today: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  row: { flexDirection: 'row', marginBottom: 12 },
+  profile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  name: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 2,
+  },
+  meta: {
+    color: colors.muted,
+    fontSize: 13,
+    marginTop: 1,
+  },
+  today: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  row: {
+    flexDirection: 'row',
+    marginBottom: 12,
+  },
 });

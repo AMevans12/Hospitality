@@ -4,11 +4,29 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme';
 import { Logo, Button } from '../components/ui';
+import { useAuth } from '../auth/AuthContext';
+import { errorMessage } from '../api/client';
+import PasswordInput from '../components/PasswordInput';
 
-export default function LoginScreen({ navigation }) {
+export default function LoginScreen() {
+  const { login } = useAuth();
   const [empId, setEmpId] = useState('');
   const [pin, setPin] = useState('');
-  const [show, setShow] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const submit = async () => {
+    if (busy) return;
+    if (!empId.trim() || !pin) return setError('Enter your employee ID and PIN');
+    setBusy(true);
+    setError('');
+    try {
+      await login(empId, pin);      // navigation switches automatically
+    } catch (e) {
+      setError(errorMessage(e));
+      setBusy(false);
+    }
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
@@ -20,25 +38,16 @@ export default function LoginScreen({ navigation }) {
 
           <View style={s.input}>
             <Ionicons name="person" size={20} color={colors.primary} />
-            <TextInput style={s.field} placeholder="Employee ID" placeholderTextColor={colors.muted} value={empId} onChangeText={setEmpId} autoCapitalize="characters" />
+            <TextInput style={s.field} placeholder="Employee ID" placeholderTextColor={colors.muted}
+              value={empId} onChangeText={setEmpId} autoCapitalize="characters" autoCorrect={false} />
           </View>
-          <View style={s.input}>
-            <Ionicons name="lock-closed" size={20} color={colors.primary} />
-            <TextInput style={s.field} placeholder="PIN / Password" placeholderTextColor={colors.muted} secureTextEntry={!show} value={pin} onChangeText={setPin} />
-            <TouchableOpacity onPress={() => setShow(!show)}>
-              <Ionicons name={show ? 'eye-off' : 'eye'} size={20} color={colors.muted} />
-            </TouchableOpacity>
-          </View>
+          <PasswordInput icon="lock-closed" placeholder="PIN / Password" value={pin}
+            onChangeText={setPin} style={{ width: '100%', marginBottom: 14 }} />
 
-          <Button title="Login" style={{ width: '100%', marginTop: 8 }} onPress={() => navigation.replace('EmployeeDashboard')} />
-          <TouchableOpacity style={{ marginTop: 18 }}>
-            <Text style={{ color: colors.primary }}>Forgot PIN?</Text>
-          </TouchableOpacity>
+          {error ? <Text style={s.error}>{error}</Text> : null}
 
-          {/* Temporary shortcut so you can open the admin UI - remove after login logic */}
-          <TouchableOpacity style={{ marginTop: 14 }} onPress={() => navigation.replace('AdminDashboard')}>
-            <Text style={{ color: colors.muted, fontSize: 12 }}>Open Admin Dashboard (dev shortcut)</Text>
-          </TouchableOpacity>
+          <Button title={busy ? 'Please wait...' : 'Login'} style={{ width: '100%', marginTop: 8, opacity: busy ? 0.7 : 1 }} onPress={submit} />
+          <Text style={s.hint}>Forgot your PIN? Contact HR to reset it.</Text>
 
           <View style={s.bottom}>
             <Ionicons name="medical" size={70} color="#D4ECEF" />
@@ -59,6 +68,8 @@ const s = StyleSheet.create({
   sub: { color: colors.muted, marginBottom: 22, marginTop: 4 },
   input: { flexDirection: 'row', alignItems: 'center', width: '100%', borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, marginBottom: 14, backgroundColor: '#fff' },
   field: { flex: 1, paddingVertical: 14, paddingHorizontal: 10, color: colors.text, fontSize: 15 },
+  error: { color: colors.red, alignSelf: 'flex-start', marginBottom: 8 },
+  hint: { color: colors.muted, marginTop: 18, fontSize: 12 },
   bottom: { flexDirection: 'row', width: '100%', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 50 },
   tag: { color: colors.green, fontSize: 16, fontStyle: 'italic' },
 });

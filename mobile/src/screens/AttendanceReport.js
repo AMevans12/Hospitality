@@ -1,90 +1,194 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useCallback, useEffect, useState } from 'react';
+import { View, Text, FlatList, TouchableOpacity, Alert, ActivityIndicator, StyleSheet } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '../theme';
-import { Screen, Header, Card, StatTile, Button } from '../components/ui';
+import { Screen, Header, Chip, StatTile, Button } from '../components/ui';
+import DateField from '../components/DateField';
+import DepartmentPicker from '../components/DepartmentPicker';
+import { useRefresh } from '../components/PullToRefresh';
+import { api, errorMessage } from '../api/client';
+import { exportReport } from '../utils/exportReport';
 
-const ROWS = [
-  ['1', 'Dr. Ahmad Khan', '26', '2', '3', '86%'],
-  ['2', 'Dr. Sara Malik', '28', '0', '1', '97%'],
-  ['3', 'Ali Raza', '25', '3', '5', '82%'],
-  ['4', 'Nida Khan', '27', '1', '2', '90%'],
-  ['5', 'Muhammad Asim', '26', '2', '4', '86%'],
-];
-const W = [26, 0, 56, 56, 40, 44]; // column widths (0 = flexible)
+const pad = (n) => String(n).padStart(2, '0');
+const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-function Cell({ i, children, bold, color }) {
+function presets() {
+  const t = new Date();
+  const week = new Date(t); week.setDate(t.getDate() - 6);
+  return {
+    'This month': [iso(new Date(t.getFullYear(), t.getMonth(), 1)), iso(t)],
+    'Last month': [iso(new Date(t.getFullYear(), t.getMonth() - 1, 1)), iso(new Date(t.getFullYear(), t.getMonth(), 0))],
+    'Last 7 days': [iso(week), iso(t)],
+  };
+}
+
+function Cell({ w, align = 'center', bold, color, children }) {
   return (
-    <Text style={[{ fontSize: 12, color: color || colors.text, fontWeight: bold ? '700' : '400', textAlign: i === 1 ? 'left' : 'center' }, W[i] ? { width: W[i] } : { flex: 1 }]}>
+    <Text numberOfLines={1} style={[{ fontSize: 12, textAlign: align, color: color || colors.text, fontWeight: bold ? '700' : '400' }, w ? { width: w } : { flex: 1 }]}>
       {children}
     </Text>
   );
 }
 
-function DateBox({ label, value }) {
-  return (
-    <View style={s.dateBox}>
-      <Text style={{ fontSize: 11, color: colors.muted }}>{label}</Text>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-        <Text style={{ fontSize: 13, color: colors.text }}>{value}</Text>
-        <Ionicons name="chevron-down" size={16} color={colors.muted} />
+const pctColor = (p) => (p >= 90 ? colors.green : p >= 75 ? '#B27300' : colors.red);
+
+export default function AttendanceReport({ navigation }) {
+  const [range, setRange] = useState(presets()['This month']);
+  const [dept, setDept] = useState(null);
+  const [departments, setDepartments] = useState([]);
+  const [rep, setRep] = useState(null);
+  const [tab, setTab] = useState('Employee Wise');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState('');
+  const [from, to] = range;
+
+  const query = { from, to, ...(dept ? { department: dept } : {}) };
+
+  const load = useCallback(async () => {
+    try {
+      setError('');
+      setLoading(true);
+      const { data } = await api.get('/reports/attendance/', { params: { from, to, ...(dept ? { department: dept } : {}) } });
+      setRep(data);
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setLoading(false);
+    }
+  }, [from, to, dept]);
+
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useEffect(() => { api.get('/departments/').then((r) => setDepartments(r.data)).catch(() => {}); }, []);
+  const refreshControl = useRefresh(load);
+
+  const setFrom = (v) => setRange(([, t]) => [v, v > t ? v : t]);
+  const setTo = (v) => setRange(([f]) => [v < f ? v : f, v]);
+
+  const doExport = async (fmt) => {
+    if (exporting) return;
+    setExporting(fmt);
+    try {
+      await exportReport(fmt, query);
+    } catch (e) {
+      Alert.alert('Export failed', e.response ? errorMessage(e) : e.message || 'Could not export');
+    } finally {
+      setExporting('');
+    }
+  };
+
+  const P = presets();
+  const t = rep ? rep.totals : null;
+  const data = rep ? (tab === 'Employee Wise' ? rep.rows : rep.departments) : [];
+
+  const header = (
+    <View style={{ padding: 14, paddingBottom: 0 }}>
+      <View style={{ flexDirection: 'row', marginBottom: 10 }}>
+        <DateField label="From" value={from} onChange={setFrom} style={{ marginRight: 8 }} />
+        <DateField label="To" value={to} onChange={setTo} style={{ marginRight: 8 }} />
+        <View style={{ flex: 1.1, justifyContent: 'flex-end' }}>
+          <DepartmentPicker departments={departments} value={dept} onChange={setDept} style={{ height: 52 }} />
+        </View>
+      </View>
+
+      <View style={{ flexDirection: 'row', marginBottom: 12 }}>
+        {Object.keys(P).map((k) => (
+          <Chip key={k} label={k} active={from === P[k][0] && to === P[k][1]} onPress={() => setRange(P[k])} />
+        ))}
+      </View>
+
+      {error ? (
+        <View style={{ marginBottom: 10 }}>
+          <Text style={{ color: colors.red, marginBottom: 6 }}>{error}</Text>
+          <TouchableOpacity onPress={load}><Text style={{ color: colors.primary, fontWeight: '700' }}>Try again</Text></TouchableOpacity>
+        </View>
+      ) : null}
+
+      <View style={{ flexDirection: 'row', marginBottom: 12 }}>
+        {[['present', 'Present', colors.green, colors.greenBg], ['absent', 'Absent', colors.red, colors.redBg], ['late', 'Late', colors.amber, colors.amberBg], ['leave', 'Leave', colors.blue, colors.blueBg]].map(([k, l, c, b], i) => (
+          <StatTile key={k} value={t ? t[k] : '-'} label={l} color={c} bg={b} style={{ marginLeft: i ? 8 : 0, flexDirection: 'column', paddingVertical: 12 }} />
+        ))}
+      </View>
+
+      <View style={s.tabs}>
+        {['Employee Wise', 'Department Wise'].map((x) => (
+          <TouchableOpacity key={x} style={[s.tab, tab === x && s.tabOn]} onPress={() => setTab(x)}>
+            <Text style={{ fontWeight: '700', color: tab === x ? colors.primary : colors.muted }}>{x}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {loading ? <ActivityIndicator style={{ marginVertical: 8 }} color={colors.green} /> : null}
+
+      <View style={[s.tr, s.thead]}>
+        {tab === 'Employee Wise' ? (
+          <>
+            <Cell w={26} bold>#</Cell><Cell align="left" bold>Employee</Cell>
+            <Cell w={52} bold>Present</Cell><Cell w={50} bold>Absent</Cell><Cell w={38} bold>Late</Cell><Cell w={42} bold>%</Cell>
+          </>
+        ) : (
+          <>
+            <Cell align="left" bold>Department</Cell><Cell w={34} bold>Emp</Cell>
+            <Cell w={52} bold>Present</Cell><Cell w={50} bold>Absent</Cell><Cell w={38} bold>Late</Cell>
+          </>
+        )}
       </View>
     </View>
   );
-}
 
-export default function AttendanceReport({ navigation }) {
-  const [tab, setTab] = useState('Employee Wise');
+  const renderRow = ({ item, index }) => (
+    <View style={{ paddingHorizontal: 14 }}>
+      <View style={[s.tr, s.row]}>
+        {tab === 'Employee Wise' ? (
+          <>
+            <Cell w={26}>{index + 1}</Cell>
+            <View style={{ flex: 1 }}>
+              <Text numberOfLines={1} style={{ fontSize: 12, color: colors.text }}>{item.name}</Text>
+              <Text style={{ fontSize: 10, color: colors.muted }}>{item.employee_id}</Text>
+            </View>
+            <Cell w={52} color={colors.green}>{item.present}</Cell>
+            <Cell w={50}>{item.absent}</Cell>
+            <Cell w={38} color={colors.red}>{item.late}</Cell>
+            <Cell w={42} bold color={pctColor(item.percent)}>{item.percent}%</Cell>
+          </>
+        ) : (
+          <>
+            <Cell align="left">{item.department}</Cell><Cell w={34}>{item.employees}</Cell>
+            <Cell w={52} color={colors.green}>{item.present}</Cell>
+            <Cell w={50}>{item.absent}</Cell>
+            <Cell w={38} color={colors.red}>{item.late}</Cell>
+          </>
+        )}
+      </View>
+    </View>
+  );
+
   return (
     <Screen header={<Header title="Attendance Report" onBack={() => navigation.goBack()} />}>
-      <ScrollView contentContainerStyle={{ padding: 14 }}>
-        <View style={{ flexDirection: 'row', marginBottom: 12 }}>
-          <DateBox label="From" value="01 Sep 2026" />
-          <DateBox label="To" value="30 Sep 2026" />
-          <DateBox label=" " value="All Departments" />
-        </View>
-
-        <View style={{ flexDirection: 'row', marginBottom: 12 }}>
-          {[['612', 'Present', colors.green, colors.greenBg], ['48', 'Absent', colors.red, colors.redBg], ['76', 'Late', colors.amber, colors.amberBg], ['22', 'Leave', colors.blue, colors.blueBg]].map(([v, l, c, b], i) => (
-            <StatTile key={l} value={v} label={l} color={c} bg={b} style={{ marginLeft: i ? 8 : 0, flexDirection: 'column', paddingVertical: 12 }} />
-          ))}
-        </View>
-
-        <View style={s.tabs}>
-          {['Employee Wise', 'Department Wise'].map((t) => (
-            <TouchableOpacity key={t} style={[s.tab, tab === t && s.tabOn]} onPress={() => setTab(t)}>
-              <Text style={{ fontWeight: '700', color: tab === t ? colors.primary : colors.muted }}>{t}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <Card style={{ padding: 0, overflow: 'hidden', marginBottom: 14 }}>
-          <View style={[s.tr, { backgroundColor: '#EEF3F5' }]}>
-            {['#', 'Employee', 'Present', 'Absent', 'Late', '%'].map((h, i) => <Cell key={h} i={i} bold>{h}</Cell>)}
-          </View>
-          {ROWS.map((r) => (
-            <View key={r[0]} style={s.tr}>
-              {r.map((c, i) => (
-                <Cell key={i} i={i} color={i === 2 ? colors.green : i === 3 ? colors.text : i === 4 ? colors.red : undefined}>{c}</Cell>
-              ))}
-            </View>
-          ))}
-        </Card>
-
-        <View style={{ flexDirection: 'row' }}>
-          <Button title="Export Excel" icon="document-text" style={{ flex: 1 }} />
-          <View style={{ width: 12 }} />
-          <Button title="Export PDF" icon="document" color={colors.red} style={{ flex: 1 }} />
-        </View>
-      </ScrollView>
+      <FlatList
+        data={data}
+        keyExtractor={(x, i) => (tab === 'Employee Wise' ? x.employee_id : x.department) + i}
+        renderItem={renderRow}
+        ListHeaderComponent={header}
+        refreshControl={refreshControl}
+        ListEmptyComponent={!loading ? <Text style={{ textAlign: 'center', color: colors.muted, marginTop: 30 }}>No data for this selection</Text> : null}
+        contentContainerStyle={{ paddingBottom: 14 }}
+      />
+      <View style={s.bar}>
+        <Button title={exporting === 'excel' ? 'Preparing...' : 'Export Excel'} icon="document-text" onPress={() => doExport('excel')} style={{ flex: 1, opacity: exporting ? 0.7 : 1 }} />
+        <View style={{ width: 12 }} />
+        <Button title={exporting === 'pdf' ? 'Preparing...' : 'Export PDF'} icon="document" color={colors.red} onPress={() => doExport('pdf')} style={{ flex: 1, opacity: exporting ? 0.7 : 1 }} />
+      </View>
     </Screen>
   );
 }
 
 const s = StyleSheet.create({
-  dateBox: { flex: 1, backgroundColor: '#fff', borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 8, marginRight: 8 },
-  tabs: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 8, marginBottom: 12 },
+  tabs: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 8, marginBottom: 10 },
   tab: { flex: 1, alignItems: 'center', paddingVertical: 12, borderBottomWidth: 3, borderBottomColor: 'transparent' },
   tabOn: { borderBottomColor: colors.primary },
-  tr: { flexDirection: 'row', paddingVertical: 10, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: colors.border },
+  tr: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 8 },
+  thead: { backgroundColor: '#E6EEF1', borderTopLeftRadius: 10, borderTopRightRadius: 10 },
+  row: { backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: colors.border },
+  bar: { flexDirection: 'row', padding: 12, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: colors.border },
 });
