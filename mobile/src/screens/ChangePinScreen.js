@@ -14,6 +14,8 @@ export default function ChangePinScreen({ navigation }) {
   const [again, setAgain] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const newRef = useRef(null);
+  const againRef = useRef(null);
 
   const submit = async () => {
     if (busy) return;
@@ -42,9 +44,21 @@ export default function ChangePinScreen({ navigation }) {
           <Text style={s.info}>
             {forced ? 'For your security, replace the temporary PIN you were given with your own.' : 'Enter your current PIN, then choose a new one.'}
           </Text>
-          <PasswordInput style={s.gap} editable={!busy} placeholder={forced ? 'Temporary / current PIN' : 'Current PIN'} value={oldPin} onChangeText={setOld} />
-          <PasswordInput style={s.gap} editable={!busy} placeholder="New PIN" value={newPin} onChangeText={setNew} />
-          <PasswordInput style={s.gap} editable={!busy} placeholder="Repeat new PIN" value={again} onChangeText={setAgain} />
+          <PasswordInput
+            style={s.gap} editable={!busy} placeholder={forced ? 'Temporary / current PIN' : 'Current PIN'}
+            value={oldPin} onChangeText={setOld}
+            returnKeyType="next" blurOnSubmit={false} onSubmitEditing={() => newRef.current?.focus()}
+          />
+          <PasswordInput
+            ref={newRef} style={s.gap} editable={!busy} placeholder="New PIN"
+            value={newPin} onChangeText={setNew}
+            returnKeyType="next" blurOnSubmit={false} onSubmitEditing={() => againRef.current?.focus()}
+          />
+          <PasswordInput
+            ref={againRef} style={s.gap} editable={!busy} placeholder="Repeat new PIN"
+            value={again} onChangeText={setAgain}
+            returnKeyType="done" onSubmitEditing={submit}
+          />
           {error ? <Text style={s.error}>{error}</Text> : null}
           <Button title={busy ? 'Please wait...' : 'Save PIN'} onPress={submit} style={{ marginTop: 6, opacity: busy ? 0.7 : 1 }} />
         </Card>

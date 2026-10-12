@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,6 +14,7 @@ export default function LoginScreen() {
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const pinRef = useRef(null);
 
   const submit = async () => {
     if (busy) return;
@@ -39,11 +40,17 @@ export default function LoginScreen() {
 
           <View style={s.input}>
             <Ionicons name="person" size={20} color={colors.primary} />
-            <TextInput style={s.field} placeholder="Employee ID" placeholderTextColor={colors.muted}
-              value={empId} onChangeText={setEmpId} autoCapitalize="characters" autoCorrect={false} />
+            <TextInput
+              style={s.field} placeholder="Employee ID" placeholderTextColor={colors.muted}
+              value={empId} onChangeText={setEmpId} autoCapitalize="characters" autoCorrect={false}
+              returnKeyType="next" blurOnSubmit={false} onSubmitEditing={() => pinRef.current?.focus()}
+            />
           </View>
-          <PasswordInput icon="lock-closed" placeholder="PIN / Password" value={pin}
-            onChangeText={setPin} style={{ width: '100%', marginBottom: 14 }} />
+          <PasswordInput
+            ref={pinRef} icon="lock-closed" placeholder="PIN / Password" value={pin}
+            onChangeText={setPin} style={{ width: '100%', marginBottom: 14 }}
+            returnKeyType="go" onSubmitEditing={submit}
+          />
 
           {notice ? <Text style={s.notice}>{notice}</Text> : null}
           {error ? <Text style={s.error}>{error}</Text> : null}

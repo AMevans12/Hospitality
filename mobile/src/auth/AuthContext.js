@@ -36,7 +36,7 @@ export function AuthProvider({ children }) {
 
   const login = async (employeeId, pin) => {
     const { data } = await api.post('/auth/login/', {
-      username: employeeId.trim().toUpperCase(),
+      username: employeeId.trim(),
       password: pin,
     });
     await tokens.set(data.access, data.refresh);

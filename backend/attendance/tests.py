@@ -1,4 +1,5 @@
-from datetime import timedelta
+from datetime import datetime, time as dtime, timedelta
+from unittest.mock import patch
 
 from django.db import IntegrityError, transaction
 from django.test import TestCase
@@ -362,3 +363,173 @@ class ModelTests(Base):
 
     def test_employee_id_property(self):
         self.assertEqual(self.staff.employee_id, 'YH-0003')
+
+class LoginCaseTests(Base):
+    def test_employee_id_is_case_sensitive(self):
+        c = APIClient()
+        bad = c.post('/api/auth/login/', {'username': 'yh-0003', 'password': '1234'}, format='json')
+        self.assertEqual(bad.status_code, 401)
+        ok = c.post('/api/auth/login/', {'username': 'YH-0003', 'password': '1234'}, format='json')
+        self.assertEqual(ok.status_code, 200)
+
+
+# ---------------------------------------------------------------- CHECK-IN / CHECK-OUT
+H_LAT, H_LNG = 33.99522, 72.92849
+NEAR = H_LAT + 0.0003      # about 33 m from the hospital
+FAR = H_LAT + 0.002        # about 222 m from the hospital
+CHECK_IN, CHECK_OUT, TODAY = '/api/attendance/check-in/', '/api/attendance/check-out/', '/api/attendance/today/'
+
+
+class AttendanceApiTests(Base):
+    def setUp(self):
+        super().setUp()
+        s = Setting.get()
+        s.radius_m, s.max_gps_accuracy_m, s.late_after_min = 100, 50, 10
+        s.save()
+        self.emp = self.mk('YH-0100', self.cardio, shift=self.shift)       # Morning 08:00-16:00
+        self.c = self.login_as(self.emp, '1234')
+
+    def send(self, path, lat=H_LAT, acc=10, client=None, **extra):
+        body = {'lat': lat, 'lng': H_LNG, 'accuracy': acc, **extra}
+        return (client or self.c).post(path, body, format='json')
+
+    def at(self, day, hh, mm):
+        return timezone.make_aware(datetime.combine(day, dtime(hh, mm)))
+
+    def send_at(self, when, path, **kw):
+        with patch('django.utils.timezone.now', return_value=when):
+            return self.send(path, **kw)
+
+    # ---- login required
+    def test_login_required(self):
+        c = APIClient()
+        self.assertEqual(c.get(TODAY).status_code, 401)
+        self.assertEqual(c.post(CHECK_IN, {}, format='json').status_code, 401)
+        self.assertEqual(c.post(CHECK_OUT, {}, format='json').status_code, 401)
+
+    # ---- the happy path
+    def test_full_day_flow(self):
+        state = lambda: self.c.get(TODAY).data
+        self.assertEqual(state()['state'], 'not_started')
+        r = self.send(CHECK_IN)
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertLess(r.data['in_distance_m'], 5)
+        self.assertEqual(state()['state'], 'checked_in')
+        self.assertEqual(self.send(CHECK_OUT).status_code, 200)
+        d = state()
+        self.assertEqual(d['state'], 'done')
+        self.assertIsNotNone(d['record']['check_out'])
+        self.assertEqual(d['geofence']['radius_m'], 100)
+        self.assertEqual(d['shift']['name'], 'Morning')
+
+    # ---- location rules
+    def test_outside_radius_rejected(self):
+        r = self.send(CHECK_IN, lat=FAR)
+        self.assertEqual((r.status_code, r.data['code']), (400, 'outside_area'))
+        self.assertGreater(r.data['distance_m'], 100)
+        self.assertFalse(Attendance.objects.filter(employee=self.emp).exists())
+
+    def test_inside_radius_accepted(self):
+        self.assertEqual(self.send(CHECK_IN, lat=NEAR).status_code, 201)
+
+    def test_weak_gps_rejected(self):
+        r = self.send(CHECK_IN, acc=80)
+        self.assertEqual((r.status_code, r.data['code']), (400, 'weak_gps'))
+
+    def test_missing_or_bad_location_rejected(self):
+        for body in ({}, {'lat': 'abc', 'lng': H_LNG, 'accuracy': 5},
+                     {'lat': 999, 'lng': H_LNG, 'accuracy': 5}, {'lat': H_LAT, 'lng': H_LNG}):
+            r = self.c.post(CHECK_IN, body, format='json')
+            self.assertEqual((r.status_code, r.data['code']), (400, 'no_location'), body)
+
+    def test_mock_location_rejected(self):
+        r = self.send(CHECK_IN, mocked=True)
+        self.assertEqual((r.status_code, r.data['code']), (400, 'mock_location'))
+
+    def test_radius_setting_is_respected(self):
+        s = Setting.get()
+        s.radius_m = 20
+        s.save()
+        self.assertEqual(self.send(CHECK_IN, lat=NEAR).data['code'], 'outside_area')
+        s.radius_m = 100
+        s.save()
+        self.assertEqual(self.send(CHECK_IN, lat=NEAR).status_code, 201)
+
+    # ---- one check-in per day, order rules
+    def test_cannot_check_in_twice(self):
+        self.send(CHECK_IN)
+        self.assertEqual(self.send(CHECK_IN).data['code'], 'already_checked_in')
+
+    def test_cannot_check_in_again_after_check_out(self):
+        self.send(CHECK_IN)
+        self.send(CHECK_OUT)
+        self.assertEqual(self.send(CHECK_IN).data['code'], 'already_done')
+
+    def test_check_out_needs_check_in(self):
+        self.assertEqual(self.send(CHECK_OUT).data['code'], 'not_checked_in')
+
+    def test_cannot_check_out_twice(self):
+        self.send(CHECK_IN)
+        self.send(CHECK_OUT)
+        self.assertEqual(self.send(CHECK_OUT).data['code'], 'not_checked_in')
+
+    def test_check_out_must_also_be_inside_radius(self):
+        self.send(CHECK_IN)
+        r = self.send(CHECK_OUT, lat=FAR)
+        self.assertEqual(r.data['code'], 'outside_area')
+        self.assertIsNone(Attendance.objects.get(employee=self.emp).check_out)   # still open
+
+    # ---- late / on time (shift 08:00, grace 10 minutes)
+    def test_on_time_and_late(self):
+        today = timezone.localdate()
+        r = self.send_at(self.at(today, 8, 9), CHECK_IN)
+        self.assertEqual(r.data['status'], 'present')
+        Attendance.objects.all().delete()
+        r = self.send_at(self.at(today, 8, 11), CHECK_IN)
+        self.assertEqual(r.data['status'], 'late')
+
+    def test_early_arrival_is_on_time(self):
+        r = self.send_at(self.at(timezone.localdate(), 7, 30), CHECK_IN)
+        self.assertEqual(r.data['status'], 'present')
+
+    def test_grace_setting_is_respected(self):
+        s = Setting.get()
+        s.late_after_min = 30
+        s.save()
+        r = self.send_at(self.at(timezone.localdate(), 8, 20), CHECK_IN)
+        self.assertEqual(r.data['status'], 'present')
+
+    def test_no_shift_means_present(self):
+        e = self.mk('YH-0102', self.cardio)
+        r = self.send_at(self.at(timezone.localdate(), 15, 0), CHECK_IN, client=self.login_as(e, '1234'))
+        self.assertEqual(r.data['status'], 'present')
+
+    # ---- night shift
+    def test_night_shift_check_out_next_morning(self):
+        night = Shift.objects.create(name='Night', start_time='20:00', end_time='08:00')
+        n = self.mk('YH-0101', self.cardio, shift=night)
+        c = self.login_as(n, '1234')
+        today = timezone.localdate()
+        yday = today - timedelta(days=1)
+        r1 = self.send_at(self.at(yday, 20, 5), CHECK_IN, client=c)
+        self.assertEqual((r1.status_code, r1.data['status']), (201, 'present'))
+        r2 = self.send_at(self.at(today, 7, 50), CHECK_OUT, client=c)
+        self.assertEqual(r2.status_code, 200, r2.content)
+        self.assertEqual(r2.data['worked_minutes'], 705)                 # 11h 45m
+        rec = Attendance.objects.get(employee=n)                         # one record, filed under the start day
+        self.assertEqual(rec.date, yday)
+
+    def test_stale_open_record_is_not_closed(self):
+        today = timezone.localdate()
+        yday = today - timedelta(days=1)
+        Attendance.objects.create(employee=self.emp, date=yday, check_in=self.at(yday, 6, 0), status='present')
+        r = self.send_at(self.at(today, 9, 0), CHECK_OUT)                # 27 hours later
+        self.assertEqual(r.data['code'], 'not_checked_in')
+
+    # ---- people can only touch their own record
+    def test_records_are_separate_per_employee(self):
+        other = self.mk('YH-0103', self.cardio, shift=self.shift)
+        oc = self.login_as(other, '1234')
+        self.send(CHECK_IN)
+        self.assertEqual(oc.get(TODAY).data['state'], 'not_started')
+        self.assertEqual(self.send(CHECK_OUT, client=oc).data['code'], 'not_checked_in')
