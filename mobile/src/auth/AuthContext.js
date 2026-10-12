@@ -8,6 +8,9 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const [notice, setNotice] = useState('');
+  const [lastId, setLastId] = useState('');
+
   const logout = useCallback(async () => {
     await tokens.clear();
     setUser(null);
@@ -40,13 +43,19 @@ export function AuthProvider({ children }) {
     setUser({ ...data.user, must_change_pin: data.must_change_pin });
   };
 
-  const changePin = async (oldPin, newPin) => {
+  const changePin = async (oldPin, newPin, { relogin = false } = {}) => {
     await api.post('/auth/change-pin/', { old_pin: oldPin, new_pin: newPin });
-    setUser((u) => ({ ...u, must_change_pin: false }));
+    if (relogin) {
+      setLastId(user?.employee_id || '');
+      setNotice('Your PIN was set. Please log in with your new PIN.');
+      await logout();
+    } else {
+      setUser((u) => ({ ...u, must_change_pin: false }));
+    }
   };
 
   return (
-    <Ctx.Provider value={{ user, loading, login, logout, changePin }}>
+        <Ctx.Provider value={{ user, loading, login, logout, changePin, notice, setNotice, lastId }}>
       {children}
     </Ctx.Provider>
   );

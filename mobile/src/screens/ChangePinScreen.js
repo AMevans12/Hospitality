@@ -22,13 +22,15 @@ export default function ChangePinScreen({ navigation }) {
     setBusy(true);
     setError('');
     try {
-      await changePin(oldPin, newPin);
+      await changePin(oldPin, newPin, { relogin: forced });
       if (!forced) {
         Alert.alert('Done', 'Your PIN was changed.');
         navigation.goBack();
       }
     } catch (e) {
-      setError(errorMessage(e));
+      setError(e.response
+        ? errorMessage(e)
+        : 'No response from the server. If you already set a new PIN, log out and log in with it.');
       setBusy(false);
     }
   };
@@ -40,9 +42,9 @@ export default function ChangePinScreen({ navigation }) {
           <Text style={s.info}>
             {forced ? 'For your security, replace the temporary PIN you were given with your own.' : 'Enter your current PIN, then choose a new one.'}
           </Text>
-          <PasswordInput style={s.gap} placeholder={forced ? 'Temporary / current PIN' : 'Current PIN'} value={oldPin} onChangeText={setOld} />
-          <PasswordInput style={s.gap} placeholder="New PIN" value={newPin} onChangeText={setNew} />
-          <PasswordInput style={s.gap} placeholder="Repeat new PIN" value={again} onChangeText={setAgain} />
+          <PasswordInput style={s.gap} editable={!busy} placeholder={forced ? 'Temporary / current PIN' : 'Current PIN'} value={oldPin} onChangeText={setOld} />
+          <PasswordInput style={s.gap} editable={!busy} placeholder="New PIN" value={newPin} onChangeText={setNew} />
+          <PasswordInput style={s.gap} editable={!busy} placeholder="Repeat new PIN" value={again} onChangeText={setAgain} />
           {error ? <Text style={s.error}>{error}</Text> : null}
           <Button title={busy ? 'Please wait...' : 'Save PIN'} onPress={submit} style={{ marginTop: 6, opacity: busy ? 0.7 : 1 }} />
         </Card>

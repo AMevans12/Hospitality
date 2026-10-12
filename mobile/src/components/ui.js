@@ -85,14 +85,20 @@ export function StatTile({ value, label, color, bg, icon, style }) {
 }
 
 // Square action button (dashboards)
-export function ActionTile({ icon, label, onPress, bg = colors.card, color = colors.primary, textColor = colors.text }) {
+export function ActionTile({ icon, label, onPress, bg = colors.card, color = colors.primary, textColor = colors.text, disabled }) {
   return (
-    <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={[s.action, shadow, { backgroundColor: bg }]}>
+    <TouchableOpacity
+      activeOpacity={0.85}
+      disabled={disabled}
+      onPress={onPress}
+      style={[s.action, shadow, { backgroundColor: bg }, disabled && { opacity: 0.35 }]}
+    >
       <Ionicons name={icon} size={30} color={color} />
       <Text style={{ marginTop: 8, color: textColor, fontWeight: '600', fontSize: 13, textAlign: 'center' }}>{label}</Text>
     </TouchableOpacity>
   );
 }
+
 
 // Label + value row with icon (success screen, settings)
 export function InfoRow({ icon, label, value }) {

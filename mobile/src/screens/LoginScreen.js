@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme';
@@ -9,8 +9,8 @@ import { errorMessage } from '../api/client';
 import PasswordInput from '../components/PasswordInput';
 
 export default function LoginScreen() {
-  const { login } = useAuth();
-  const [empId, setEmpId] = useState('');
+  const { login, notice, setNotice, lastId } = useAuth();
+  const [empId, setEmpId] = useState(lastId || '');
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -19,6 +19,7 @@ export default function LoginScreen() {
     if (busy) return;
     if (!empId.trim() || !pin) return setError('Enter your employee ID and PIN');
     setBusy(true);
+    setNotice('');
     setError('');
     try {
       await login(empId, pin);      // navigation switches automatically
@@ -44,6 +45,7 @@ export default function LoginScreen() {
           <PasswordInput icon="lock-closed" placeholder="PIN / Password" value={pin}
             onChangeText={setPin} style={{ width: '100%', marginBottom: 14 }} />
 
+          {notice ? <Text style={s.notice}>{notice}</Text> : null}
           {error ? <Text style={s.error}>{error}</Text> : null}
 
           <Button title={busy ? 'Please wait...' : 'Login'} style={{ width: '100%', marginTop: 8, opacity: busy ? 0.7 : 1 }} onPress={submit} />
@@ -68,6 +70,7 @@ const s = StyleSheet.create({
   sub: { color: colors.muted, marginBottom: 22, marginTop: 4 },
   input: { flexDirection: 'row', alignItems: 'center', width: '100%', borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, marginBottom: 14, backgroundColor: '#fff' },
   field: { flex: 1, paddingVertical: 14, paddingHorizontal: 10, color: colors.text, fontSize: 15 },
+  notice: { color: colors.green, alignSelf: 'flex-start', marginBottom: 10, fontWeight: '600' },
   error: { color: colors.red, alignSelf: 'flex-start', marginBottom: 8 },
   hint: { color: colors.muted, marginTop: 18, fontSize: 12 },
   bottom: { flexDirection: 'row', width: '100%', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 50 },

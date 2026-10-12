@@ -2,6 +2,7 @@ from django.urls import path
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .serializers import LoginSerializer
 from . import views
+from .attendance_views import TodayView, CheckInView, CheckOutView
 
 urlpatterns = [
     path('auth/login/', TokenObtainPairView.as_view(serializer_class=LoginSerializer)),
@@ -18,4 +19,7 @@ urlpatterns = [
     path('reports/attendance/', views.AttendanceReportView.as_view()),
     path('settings/', views.SettingsView.as_view()),
     path('reports/attendance/export/<str:fmt>/', views.ReportExport.as_view()),
+    path('attendance/today/', TodayView.as_view()),
+    path('attendance/check-in/', CheckInView.as_view()),
+    path('attendance/check-out/', CheckOutView.as_view()),
 ]
