@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { View, Text, ActivityIndicator, TouchableOpacity, StyleSheet } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '../theme';
@@ -8,6 +8,7 @@ import { fmtTime } from '../components/TimeField';
 import { useAuth } from '../auth/AuthContext';
 import SideMenu from '../components/SideMenu';
 import { api, errorMessage } from '../api/client';
+
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -32,11 +33,19 @@ function Stat({ label, value }) {
 }
 
 export default function EmployeeDashboard({ navigation }) {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+
+useFocusEffect(
+  useCallback(() => {
+    if (user?.face_required && !user?.face_enrolled) {
+      navigation.replace('FaceEnroll');
+    }
+  }, [user?.face_required, user?.face_enrolled])
+);
 
   const load = useCallback(async () => {
     try {

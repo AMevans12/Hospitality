@@ -11,10 +11,13 @@ export function AuthProvider({ children }) {
   const [notice, setNotice] = useState('');
   const [lastId, setLastId] = useState('');
 
+  const updateUser = (patch) => setUser((u) => (u ? { ...u, ...patch } : u));
+
   const logout = useCallback(async () => {
     await tokens.clear();
     setUser(null);
   }, []);
+
 
   // On app start: if a token is saved, restore the session
   useEffect(() => {
@@ -55,7 +58,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-        <Ctx.Provider value={{ user, loading, login, logout, changePin, notice, setNotice, lastId }}>
+        <Ctx.Provider value={{ user, loading, login, logout, changePin, notice, setNotice, lastId, updateUser }}>
       {children}
     </Ctx.Provider>
   );

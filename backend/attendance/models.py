@@ -68,6 +68,9 @@ class Attendance(models.Model):
     face_score = models.FloatField(null=True, blank=True)
     source = models.CharField(max_length=10, choices=SOURCE, default='app')
     note = models.CharField(max_length=255, blank=True)
+    out_face_score = models.FloatField(null=True, blank=True)
+    in_photo = models.ImageField(upload_to='checkins/%Y/%m/', null=True, blank=True)
+    out_photo = models.ImageField(upload_to='checkins/%Y/%m/', null=True, blank=True)
 
     class Meta:
         unique_together = ('employee', 'date')
@@ -116,6 +119,7 @@ class Setting(models.Model):
     late_after_min = models.PositiveIntegerField(default=10)
     max_gps_accuracy_m = models.PositiveIntegerField(default=50)
     min_face_score = models.FloatField(default=0.45)
+    face_required = models.BooleanField(default=False)    
 
     @classmethod
     def get(cls):

@@ -144,3 +144,6 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+FACE_MODEL = 'buffalo_l'
+FACE_MODEL_DIR = BASE_DIR / 'face_models'     # keeps the ~280 MB model on D:, not C:

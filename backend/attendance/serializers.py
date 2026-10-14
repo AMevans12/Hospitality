@@ -12,7 +12,12 @@ class EmployeeSerializer(serializers.ModelSerializer):
         model = Employee
         fields = ['id', 'employee_id', 'name', 'first_name', 'last_name', 'designation',
                   'department', 'department_name', 'category', 'shift', 'role',
-                  'phone', 'is_active']
+                  'phone', 'is_active', 'face_enrolled']
+        
+    face_enrolled = serializers.SerializerMethodField()
+
+    def get_face_enrolled(self, o):
+        return bool(o.face_embedding)
 
     def get_name(self, o):
         return o.get_full_name() or o.username
@@ -46,6 +51,8 @@ def user_payload(u):
         'role': 'admin' if u.is_superuser else u.role,
         'designation': u.designation,
         'department': u.department.name if u.department else None,
+        'face_enrolled': bool(u.face_embedding),  
+        'face_required': bool(getattr(Setting.objects.first(), 'face_required', False)),      
     }
 
 

@@ -125,7 +125,7 @@ function PinModal({ info, onClose }) {
 }
 
 // ---- row menu ----
-function ActionMenu({ emp, onClose, onEdit, onReset, onToggle }) {
+function ActionMenu({ emp, onClose, onEdit, onReset, onResetFace, onToggle }) {
   const Item = ({ icon, label, onPress, color = colors.text }) => (
     <TouchableOpacity style={s.menuRow} onPress={onPress}>
       <Ionicons name={icon} size={22} color={color} />
@@ -139,6 +139,7 @@ function ActionMenu({ emp, onClose, onEdit, onReset, onToggle }) {
           <Text style={[s.formTitle, { padding: 16, paddingBottom: 6 }]}>{emp.name}</Text>
           <Item icon="create-outline" label="Edit details" onPress={onEdit} />
           <Item icon="key-outline" label="Reset PIN" onPress={onReset} />
+          {emp.face_enrolled ? <Item icon="scan-outline" label="Reset face" onPress={onResetFace} /> : null}
           {emp.is_active
             ? <Item icon="person-remove-outline" label="Deactivate" color={colors.red} onPress={onToggle} />
             : <Item icon="person-add-outline" label="Activate" color={colors.green} onPress={onToggle} />}
@@ -214,6 +215,16 @@ export default function EmployeeManagement({ navigation }) {
       },
     ]);
 
+  const askResetFace = (emp) =>
+    Alert.alert('Reset face', `Remove the registered face of ${emp.name}? They must register again.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Reset',
+        style: 'destructive',
+        onPress: () => api.post(`/employees/${emp.id}/face/reset/`).then(load).catch(fail),
+      },
+    ]);
+
   const toggleActive = (emp) => {
     if (!emp.is_active) {
       api.patch(`/employees/${emp.id}/`, { is_active: true }).then(load).catch(fail);
@@ -281,6 +292,7 @@ export default function EmployeeManagement({ navigation }) {
                 <Text style={{ fontWeight: '700', color: colors.text }}>{item.name}</Text>
                 <Text style={s.meta}>{item.employee_id} | {item.designation || '-'}</Text>
                 <Text style={s.meta}>{item.department_name || 'No department'}</Text>
+                <Text style={s.meta}>{item.face_enrolled ? 'Face registered' : 'No face registered'}</Text>                
               </View>
               <Badge text={item.is_active ? 'Active' : 'Inactive'} type={item.is_active ? 'green' : 'red'} />
               <TouchableOpacity onPress={() => setMenu(item)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
@@ -307,6 +319,7 @@ export default function EmployeeManagement({ navigation }) {
           onClose={() => setMenu(null)}
           onEdit={() => { const e = menu; setMenu(null); setForm(e); }}
           onReset={() => { const e = menu; setMenu(null); askReset(e); }}
+          onResetFace={() => { const e = menu; setMenu(null); askResetFace(e); }}
           onToggle={() => { const e = menu; setMenu(null); toggleActive(e); }}
         />
       ) : null}
