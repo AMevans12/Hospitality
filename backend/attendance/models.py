@@ -38,6 +38,8 @@ class Employee(AbstractUser):
     face_image = models.ImageField(upload_to='faces/', null=True, blank=True)
     face_embedding = models.JSONField(null=True, blank=True)   # filled by face step
     device_id = models.CharField(max_length=100, blank=True)   # one phone per employee
+    failed_logins = models.PositiveSmallIntegerField(default=0)
+    locked_until = models.DateTimeField(null=True, blank=True)    
     device_name = models.CharField(max_length=100, blank=True)
     device_bound_at = models.DateTimeField(null=True, blank=True)
 

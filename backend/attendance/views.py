@@ -118,6 +118,8 @@ class ResetPin(APIView):
         pin = make_temp_pin()
         emp.set_password(pin)
         emp.must_change_pin = True
+        emp.failed_logins = 0
+        emp.locked_until = None        
         emp.save()
         audit(request, 'employee.reset_pin', emp.username)
         return Response({'employee_id': emp.username, 'temp_pin': pin})

@@ -262,7 +262,7 @@ class FaceCheckView(APIView):
         if not f:
             return Response({'ok': False, 'hint': 'No image received'})
         raw = f.read()
-        open('last_frame.jpg', 'wb').write(raw)   # TEMPORARY debug, remove later
+        
         try:
             pil = ImageOps.exif_transpose(Image.open(io.BytesIO(raw))).convert('RGB')
         except Exception:

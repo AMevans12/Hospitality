@@ -1,13 +1,14 @@
 {
   "expo": {
-    "name": "Hospital-App",
+    "name": "Yahya Attendance",
     "slug": "Hospital-App",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.yahyahospital.attendance"
     },
     "android": {
       "adaptiveIcon": {
@@ -16,7 +17,7 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "package": "com.anonymous.HospitalApp"
+      "package": "com.yahyahospital.attendance"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -24,7 +25,12 @@
     "plugins": [
       "expo-secure-store",
       "expo-sharing",
-      ["expo-camera", { "cameraPermission": "This app uses the camera to verify your face for attendance." }]
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "This app uses the camera to verify your face for attendance."
+        }
+      ]
     ]
   }
 }

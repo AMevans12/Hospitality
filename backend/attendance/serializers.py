@@ -2,7 +2,10 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
 from .models import Employee, Department, Shift, Setting
 from django.utils import timezone
-from rest_framework.exceptions import PermissionDenied
+from datetime import timedelta
+from rest_framework.exceptions import PermissionDenied, AuthenticationFailed
+from math import ceil
+ 
 
 class EmployeeSerializer(serializers.ModelSerializer):
     employee_id = serializers.CharField(source='username', read_only=True)
@@ -61,11 +64,35 @@ def user_payload(u):
         'face_required': bool(getattr(Setting.objects.first(), 'face_required', False)),      
     }
 
+MAX_ATTEMPTS = 5
+LOCK_MINUTES = 10
+
 
 class LoginSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
-        data = super().validate(attrs)          # rejects wrong PIN / inactive users
+        emp = Employee.objects.filter(username=attrs.get(self.username_field)).first()
+
+        # locked after too many wrong PINs
+        if emp and emp.locked_until and emp.locked_until > timezone.now():
+            mins = ceil((emp.locked_until - timezone.now()).total_seconds() / 60)
+            raise PermissionDenied(f'Too many wrong attempts. Try again in {mins} minute(s).')
+
+        try:
+            data = super().validate(attrs)          # rejects wrong PIN / inactive users
+        except AuthenticationFailed:
+            if emp:
+                emp.failed_logins += 1
+                if emp.failed_logins >= MAX_ATTEMPTS:
+                    emp.locked_until = timezone.now() + timedelta(minutes=LOCK_MINUTES)
+                    emp.failed_logins = 0
+                emp.save(update_fields=['failed_logins', 'locked_until'])
+            raise
+
         u = self.user
+        if u.failed_logins or u.locked_until:
+            u.failed_logins = 0
+            u.locked_until = None
+            u.save(update_fields=['failed_logins', 'locked_until'])
 
         request = self.context.get('request')
         dev = str(request.data.get('device_id', '')).strip()[:100] if request else ''
