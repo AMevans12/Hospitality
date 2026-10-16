@@ -6,12 +6,12 @@ import FaceCapture from '../components/FaceCapture';
 import { api, errorMessage } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 
-const PROMPTS = [
-  'Look straight at the camera',
-  'Turn your head slightly left',
-  'Look straight at the camera',
-  'Turn your head slightly right',
-  'Look straight at the camera',
+const STEPS = [
+  { text: 'Look straight at the camera', type: 'straight' },
+  { text: 'Slowly turn your head to one side', type: 'turn' },
+  { text: 'Look straight again', type: 'straight' },
+  { text: 'Now turn to the other side', type: 'opposite' },
+  { text: 'Look straight again', type: 'straight' },
 ];
 
 export default function FaceEnroll({ navigation }) {
@@ -51,7 +51,7 @@ export default function FaceEnroll({ navigation }) {
     return (
       <FaceCapture
         key={attempt}
-        prompts={PROMPTS}
+        steps={STEPS}
         onDone={upload}
         onError={(m) => { setError(m); setPhase('error'); }}
       />

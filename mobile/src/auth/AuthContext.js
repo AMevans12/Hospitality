@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { api, tokens, setLogoutHandler } from '../api/client';
+import { getDeviceInfo } from '../utils/device';
 
 const Ctx = createContext(null);
 export const useAuth = () => useContext(Ctx);
@@ -38,9 +39,11 @@ export function AuthProvider({ children }) {
   }, [logout]);
 
   const login = async (employeeId, pin) => {
+    const dev = await getDeviceInfo();
     const { data } = await api.post('/auth/login/', {
       username: employeeId.trim(),
       password: pin,
+      ...dev,
     });
     await tokens.set(data.access, data.refresh);
     setUser({ ...data.user, must_change_pin: data.must_change_pin });
@@ -58,7 +61,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-        <Ctx.Provider value={{ user, loading, login, logout, changePin, notice, setNotice, lastId, updateUser }}>
+    <Ctx.Provider value={{ user, loading, login, logout, changePin, notice, setNotice, lastId, updateUser }}>
       {children}
     </Ctx.Provider>
   );

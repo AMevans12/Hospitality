@@ -49,7 +49,15 @@ export default function SideMenu({ visible, onClose, navigation }) {
     ]);
 
   // ---- menu options: add more here later ----
+  // ---- menu options: add more here later ----
+  const canApprove = ['admin', 'hr', 'head'].includes(user?.role);
   const items = [
+    ...(user?.role !== 'admin'
+      ? [{ icon: 'calendar-outline', label: 'My Leave', onPress: () => navigation.navigate('Leave') }]
+      : []),
+    ...(canApprove
+      ? [{ icon: 'document-text-outline', label: 'Leave Requests', onPress: () => navigation.navigate('LeaveApprovals') }]
+      : []),
     { icon: 'key-outline', label: 'Change PIN', onPress: () => navigation.navigate('ChangePin') },
   ];
 

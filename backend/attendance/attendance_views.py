@@ -8,7 +8,7 @@ from django.utils import timezone
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
-from .models import Attendance, Employee, Holiday, LeaveRequest, Setting
+from .models import Attendance, Employee, Holiday, LeaveRequest, Setting, AuditLog
 from . import face as facelib
 from .permissions import IsAdminOrHR
 from .views import audit
@@ -18,6 +18,9 @@ from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+import io
+from PIL import Image, ImageOps
 
 from .geo import distance_m
 from .models import Attendance, Holiday, LeaveRequest, Setting
@@ -249,3 +252,79 @@ class HistoryView(APIView):
         pct = round((counts['present'] + counts['late']) * 100 / expected) if expected else 0
         return Response({'month': raw, 'summary': {**counts, 'percent': pct}, 'days': days})
 
+class FaceCheckView(APIView):
+    """Live guidance while the user lines up their face. Saves nothing."""
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser]
+
+    def post(self, request):
+        f = request.FILES.get('frame')
+        if not f:
+            return Response({'ok': False, 'hint': 'No image received'})
+        raw = f.read()
+        open('last_frame.jpg', 'wb').write(raw)   # TEMPORARY debug, remove later
+        try:
+            pil = ImageOps.exif_transpose(Image.open(io.BytesIO(raw))).convert('RGB')
+        except Exception:
+            return Response({'ok': False, 'hint': 'Could not read the image'})
+        img = cv2.cvtColor(np.array(pil), cv2.COLOR_RGB2BGR)
+        if img is None:
+            return Response({'ok': False, 'hint': 'Could not read the image'})
+        h, w = img.shape[:2]
+        if max(h, w) > 960:
+            k = 960 / max(h, w)
+            img = cv2.resize(img, (int(w * k), int(h * k)))
+            h, w = img.shape[:2]
+
+        faces = facelib.get_app().get(img)
+        if not faces:
+            return Response({'ok': False, 'hint': 'No face found. Put your face inside the oval.'})
+        if len(faces) > 1:
+            return Response({'ok': False, 'hint': 'Only one person should be in the frame.'})
+
+        fc = faces[0]
+        x1, y1, x2, y2 = [float(v) for v in fc.bbox]
+        fw = (x2 - x1) / w
+        cx, cy = (x1 + x2) / 2 / w, (y1 + y2) / 2 / h
+        crop = img[max(0, int(y1)):int(y2), max(0, int(x1)):int(x2)]
+        if crop.size == 0:
+            return Response({'ok': False, 'hint': 'Put your face inside the oval.'})
+        gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+        bright = float(gray.mean())
+        sharp = float(cv2.Laplacian(gray, cv2.CV_64F).var())
+
+        hint = None
+        if bright < 70:
+            hint = 'Too dark. Move to a brighter place.'
+        elif bright > 215:
+            hint = 'Too bright. Avoid strong light behind or on your face.'
+        elif float(fc.det_score) < 0.6:
+            hint = 'Face not clear. Improve the lighting and remove glasses or mask.'
+        elif fw < 0.28:
+            hint = 'Move closer.'
+        elif fw > 0.75:
+            hint = 'Move back a little.'
+        elif abs(cx - 0.5) > 0.15 or abs(cy - 0.5) > 0.2:
+            hint = 'Center your face in the oval.'
+        elif sharp < 25:
+            hint = 'Hold still.'
+        if hint:
+            return Response({'ok': False, 'hint': hint})
+
+        k = fc.kps
+        eye_dist = abs(float(k[1][0]) - float(k[0][0])) or 1.0
+        yaw = (float(k[2][0]) - (float(k[0][0]) + float(k[1][0])) / 2) / eye_dist
+        return Response({'ok': True, 'yaw': yaw})
+
+class DeviceResetView(APIView):
+    permission_classes = [IsAdminOrHR]
+
+    def post(self, request, pk):
+        emp = get_object_or_404(Employee, pk=pk)
+        emp.device_id = ''
+        emp.device_name = ''
+        emp.device_bound_at = None
+        emp.save(update_fields=['device_id', 'device_name', 'device_bound_at'])
+        AuditLog.objects.create(actor=request.user, action='device_reset', target=emp.username)
+        return Response({'ok': True})
+    

@@ -1,6 +1,8 @@
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
 from .models import Employee, Department, Shift, Setting
+from django.utils import timezone
+from rest_framework.exceptions import PermissionDenied
 
 class EmployeeSerializer(serializers.ModelSerializer):
     employee_id = serializers.CharField(source='username', read_only=True)
@@ -12,12 +14,16 @@ class EmployeeSerializer(serializers.ModelSerializer):
         model = Employee
         fields = ['id', 'employee_id', 'name', 'first_name', 'last_name', 'designation',
                   'department', 'department_name', 'category', 'shift', 'role',
-                  'phone', 'is_active', 'face_enrolled']
+                  'phone', 'is_active', 'face_enrolled', 'device_bound', 'device_name']
         
     face_enrolled = serializers.SerializerMethodField()
-
+    device_bound = serializers.SerializerMethodField()
+    
     def get_face_enrolled(self, o):
         return bool(o.face_embedding)
+
+    def get_device_bound(self, o):
+        return bool(o.device_id)
 
     def get_name(self, o):
         return o.get_full_name() or o.username
@@ -59,10 +65,28 @@ def user_payload(u):
 class LoginSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)          # rejects wrong PIN / inactive users
-        data['user'] = user_payload(self.user)
-        data['must_change_pin'] = self.user.must_change_pin
-        return data
+        u = self.user
 
+        request = self.context.get('request')
+        dev = str(request.data.get('device_id', '')).strip()[:100] if request else ''
+        name = str(request.data.get('device_name', '')).strip()[:100] if request else ''
+
+        # one phone per staff member (admin / HR are exempt)
+        if Setting.get().device_binding and u.role in ('staff', 'head') and not u.is_superuser:
+            if not dev:
+                raise PermissionDenied('Could not identify this phone. Please update the app.')
+            if not u.device_id:
+                u.device_id = dev
+                u.device_name = name
+                u.device_bound_at = timezone.now()
+                u.save(update_fields=['device_id', 'device_name', 'device_bound_at'])
+            elif u.device_id != dev:
+                raise PermissionDenied('This account is linked to another phone. Please contact HR to reset it.')
+
+        data['user'] = user_payload(u)
+        data['must_change_pin'] = u.must_change_pin
+        return data
+    
 class SettingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Setting

@@ -125,7 +125,7 @@ function PinModal({ info, onClose }) {
 }
 
 // ---- row menu ----
-function ActionMenu({ emp, onClose, onEdit, onReset, onResetFace, onToggle }) {
+function ActionMenu({ emp, onClose, onEdit, onReset, onResetFace, onResetDevice, onToggle }) {
   const Item = ({ icon, label, onPress, color = colors.text }) => (
     <TouchableOpacity style={s.menuRow} onPress={onPress}>
       <Ionicons name={icon} size={22} color={color} />
@@ -139,6 +139,7 @@ function ActionMenu({ emp, onClose, onEdit, onReset, onResetFace, onToggle }) {
           <Text style={[s.formTitle, { padding: 16, paddingBottom: 6 }]}>{emp.name}</Text>
           <Item icon="create-outline" label="Edit details" onPress={onEdit} />
           <Item icon="key-outline" label="Reset PIN" onPress={onReset} />
+          {emp.device_bound ? <Item icon="phone-portrait-outline" label="Reset device" onPress={onResetDevice} /> : null}
           {emp.face_enrolled ? <Item icon="scan-outline" label="Reset face" onPress={onResetFace} /> : null}
           {emp.is_active
             ? <Item icon="person-remove-outline" label="Deactivate" color={colors.red} onPress={onToggle} />
@@ -225,6 +226,16 @@ export default function EmployeeManagement({ navigation }) {
       },
     ]);
 
+  const askResetDevice = (emp) =>
+    Alert.alert('Reset device', `Unlink the phone registered to ${emp.name}? The next phone they log in on becomes their device.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Reset',
+        style: 'destructive',
+        onPress: () => api.post(`/employees/${emp.id}/device/reset/`).then(load).catch(fail),
+      },
+    ]);    
+
   const toggleActive = (emp) => {
     if (!emp.is_active) {
       api.patch(`/employees/${emp.id}/`, { is_active: true }).then(load).catch(fail);
@@ -292,7 +303,8 @@ export default function EmployeeManagement({ navigation }) {
                 <Text style={{ fontWeight: '700', color: colors.text }}>{item.name}</Text>
                 <Text style={s.meta}>{item.employee_id} | {item.designation || '-'}</Text>
                 <Text style={s.meta}>{item.department_name || 'No department'}</Text>
-                <Text style={s.meta}>{item.face_enrolled ? 'Face registered' : 'No face registered'}</Text>                
+                <Text style={s.meta}>{item.face_enrolled ? 'Face registered' : 'No face registered'}</Text> 
+                <Text style={s.meta}>{item.device_bound ? `Device: ${item.device_name || 'registered'}` : 'No device linked'}</Text>               
               </View>
               <Badge text={item.is_active ? 'Active' : 'Inactive'} type={item.is_active ? 'green' : 'red'} />
               <TouchableOpacity onPress={() => setMenu(item)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
@@ -320,6 +332,7 @@ export default function EmployeeManagement({ navigation }) {
           onEdit={() => { const e = menu; setMenu(null); setForm(e); }}
           onReset={() => { const e = menu; setMenu(null); askReset(e); }}
           onResetFace={() => { const e = menu; setMenu(null); askResetFace(e); }}
+          onResetDevice={() => { const e = menu; setMenu(null); askResetDevice(e); }}
           onToggle={() => { const e = menu; setMenu(null); toggleActive(e); }}
         />
       ) : null}

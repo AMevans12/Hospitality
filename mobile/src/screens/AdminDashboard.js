@@ -96,6 +96,11 @@ export default function AdminDashboard({ navigation }) {
             <View style={{ width: 12 }} />
             <ActionTile icon="settings-outline" label="Settings" onPress={() => navigation.navigate('Settings')} />
           </View>
+          <View style={s.row}>
+            <ActionTile icon="document-text-outline" label="Leave Requests" onPress={() => navigation.navigate('LeaveApprovals')} />
+            <View style={{ width: 12 }} />
+            <View style={{ flex: 1 }} />
+          </View>
         </PullToRefresh>
       </Screen>
       <SideMenu visible={menuOpen} onClose={() => setMenuOpen(false)} navigation={navigation} />

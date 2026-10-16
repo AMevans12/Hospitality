@@ -38,6 +38,8 @@ class Employee(AbstractUser):
     face_image = models.ImageField(upload_to='faces/', null=True, blank=True)
     face_embedding = models.JSONField(null=True, blank=True)   # filled by face step
     device_id = models.CharField(max_length=100, blank=True)   # one phone per employee
+    device_name = models.CharField(max_length=100, blank=True)
+    device_bound_at = models.DateTimeField(null=True, blank=True)
 
     must_change_pin = models.BooleanField(default=True)  
 
@@ -119,7 +121,8 @@ class Setting(models.Model):
     late_after_min = models.PositiveIntegerField(default=10)
     max_gps_accuracy_m = models.PositiveIntegerField(default=50)
     min_face_score = models.FloatField(default=0.45)
-    face_required = models.BooleanField(default=False)    
+    face_required = models.BooleanField(default=False)  
+    device_binding = models.BooleanField(default=False)      
 
     @classmethod
     def get(cls):

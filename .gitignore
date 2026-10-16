@@ -11,6 +11,8 @@ backend/staticfiles/
 backend/face_models/
 .env
 *.env
+backend/import_result_*.xlsx
+backend/employees.xlsx
 
 # ---------- Mobile (Expo / React Native) ----------
 mobile/node_modules/

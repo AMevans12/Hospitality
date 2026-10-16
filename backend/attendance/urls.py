@@ -2,7 +2,9 @@ from django.urls import path
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .serializers import LoginSerializer
 from . import views
-from .attendance_views import TodayView, CheckInView, CheckOutView, HistoryView, FaceEnrollView, FaceResetView
+from .attendance_views import (TodayView, CheckInView, CheckOutView, HistoryView, FaceEnrollView,
+                                FaceResetView, FaceCheckView, DeviceResetView)
+from .leave_views import LeaveListCreateView, LeaveManageView, LeaveDecideView, LeaveCancelView
 
 urlpatterns = [
     path('auth/login/', TokenObtainPairView.as_view(serializer_class=LoginSerializer)),
@@ -25,4 +27,10 @@ urlpatterns = [
     path('attendance/history/', HistoryView.as_view()),
     path('face/enroll/', FaceEnrollView.as_view()),
     path('employees/<int:pk>/face/reset/', FaceResetView.as_view()),
+    path('face/check/', FaceCheckView.as_view()),
+    path('employees/<int:pk>/device/reset/', DeviceResetView.as_view()),
+    path('leaves/', LeaveListCreateView.as_view()),
+    path('leaves/manage/', LeaveManageView.as_view()),
+    path('leaves/<int:pk>/decide/', LeaveDecideView.as_view()),
+    path('leaves/<int:pk>/cancel/', LeaveCancelView.as_view()),
 ]
