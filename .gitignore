@@ -1,0 +1,36 @@
+# ---------- Backend (Django) ----------
+backend/venv/
+backend/.venv/
+backend/env/
+__pycache__/
+*.pyc
+backend/db.sqlite3
+backend/*.sqlite3
+backend/media/
+backend/staticfiles/
+backend/face_models/
+.env
+*.env
+backend/import_result_*.xlsx
+backend/employees.xlsx
+
+# ---------- Mobile (Expo / React Native) ----------
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
+mobile/android/
+mobile/ios/
+*.log
+npm-debug.*
+*.jks
+*.keystore
+*.p8
+*.p12
+*.mobileprovision
+
+# ---------- Editor / OS ----------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

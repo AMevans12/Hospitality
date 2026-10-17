@@ -1,0 +1,46 @@
+from django.urls import path
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from .serializers import LoginSerializer
+from . import views
+from .attendance_views import (TodayView, CheckInView, CheckOutView, HistoryView, FaceEnrollView,
+                                FaceResetView, FaceCheckView, DeviceResetView, OfflineSyncView)
+from .leave_views import LeaveListCreateView, LeaveManageView, LeaveDecideView, LeaveCancelView
+from .announcement_views import (
+    AnnouncementListCreateView, AnnouncementDetailView, AnnouncementReadView, AnnouncementUnreadView,
+)
+from .day_views import DayListView
+
+urlpatterns = [
+    path('auth/login/', TokenObtainPairView.as_view(serializer_class=LoginSerializer)),
+    path('auth/refresh/', TokenRefreshView.as_view()),
+    path('auth/change-pin/', views.ChangePinView.as_view()),
+    path('me/', views.MeView.as_view()),
+    path('employees/', views.EmployeeList.as_view()),
+    path('employees/<int:pk>/', views.EmployeeDetail.as_view()),
+    path('employees/<int:pk>/reset-pin/', views.ResetPin.as_view()),
+    path('departments/', views.DepartmentList.as_view()),
+    path('shifts/', views.ShiftList.as_view()),
+    path('shifts/<int:pk>/', views.ShiftDetail.as_view()),
+    path('dashboard/', views.DashboardView.as_view()),
+    path('reports/attendance/', views.AttendanceReportView.as_view()),
+    path('settings/', views.SettingsView.as_view()),
+    path('reports/attendance/export/<str:fmt>/', views.ReportExport.as_view()),
+    path('attendance/today/', TodayView.as_view()),
+    path('attendance/check-in/', CheckInView.as_view()),
+    path('attendance/check-out/', CheckOutView.as_view()),
+    path('attendance/history/', HistoryView.as_view()),
+    path('face/enroll/', FaceEnrollView.as_view()),
+    path('employees/<int:pk>/face/reset/', FaceResetView.as_view()),
+    path('face/check/', FaceCheckView.as_view()),
+    path('employees/<int:pk>/device/reset/', DeviceResetView.as_view()),
+    path('leaves/', LeaveListCreateView.as_view()),
+    path('leaves/manage/', LeaveManageView.as_view()),
+    path('leaves/<int:pk>/decide/', LeaveDecideView.as_view()),
+    path('leaves/<int:pk>/cancel/', LeaveCancelView.as_view()),
+    path('attendance/sync/', OfflineSyncView.as_view()),    
+    path('announcements/', AnnouncementListCreateView.as_view()),
+    path('announcements/unread-count/', AnnouncementUnreadView.as_view()),
+    path('announcements/<int:pk>/', AnnouncementDetailView.as_view()),
+    path('announcements/<int:pk>/read/', AnnouncementReadView.as_view()),    
+    path('dashboard/list/', DayListView.as_view()),    
+]
